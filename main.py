@@ -1,15 +1,19 @@
 import subprocess
 import re
 from datetime import datetime
+import tkinter as tk
+from tkinter import filedialog
+import os
 
 exif_tool_path = 'exiftool'
-image_path = './images/2020-05-19__145947.JPG'
-camara = None
-fecha = None
+# image_path = './images/2020-05-19__145947.JPG'
 
-def metadatos(imagen):
-    """Devuelve el modelo de cámara y la fecha original
+def get_camara_fecha(imagen):
     """
+    Devuelve el modelo de cámara y la fecha original
+    """
+    camara, fecha = '', ''
+    
     process = subprocess.Popen(
             [exif_tool_path, imagen],
             stdout=subprocess.PIPE,
@@ -24,32 +28,62 @@ def metadatos(imagen):
             fecha = line[-1].strip()
             fecha = fecha[:10].replace(':', '-')
 
-    # print(f'Camara: {camara}')
-    # print(f"Fecha: {fecha}")
     return camara, fecha
 
-def renombra(imagen):
+def get_numeracion(imagen):
+    """
+    Devuelve la numeración de la foto
+    """
     imagen = imagen.lower()
-    patron1 = re.compile(
-            r'''                # busca ./images/2020-05-19__145947.jpg
-            ^(.*/)              # ruta
-            (\d{4}-\d{2}-\d{2}) # fecha
-            (__)                # guiones
-            (\d{4,6}?)$         # contador
-            (.jpg)              # extension
-            ''', re.VERBOSE)
+    patron = re.compile(r'(\d{4,6})(.JPG|.jpg)')
+    numeracion = patron.search(imagen)
+    if numeracion is not None:
+        return numeracion.group(1)
+    else:
+        return '000001'
 
-    patron2 = re.compile(
-            r'''                # busca ./images/2014.12.19 - X-E2 - 0007.jpg
-            ^(.*/)              # ruta ./images/
-            (\d{4}\.\d{2}\.\d{2}) # fecha 2014.12.19
-            (\s-.*-\s)          # camara ' - X-E2 - '
-            (\d{4,6}?)          # contador
-            (.jpg)              # extension
-            ''', re.VERBOSE)
+def get_path():
+    """
+    Devuelve la ruta de la imagen
+    """
+    root = tk.Tk()
+    root.withdraw()
 
-    return nombre_sin_ext
+    file_path = filedialog.askopenfilename(
+            initialdir='./',
+            filetypes=(("Image File", "*.jpg"),),
+            title="Selecciona el fichero JPG")
+    return file_path
 
-if __name__ == "__main__":
-    print(metadatos(image_path))
-    print(renombra(image_path))
+
+# if __name__ == "__main__":
+#     camara, fecha = get_camara_fecha(image_path)
+#     numeracion = get_numeracion(image_path)
+#     nombre_fichero = fecha + '_' + camara + '_' + numeracion + '.jpg'
+#     print(nombre_fichero)
+
+# fullpath = get_path()
+# dirpath = os.path.dirname(fullpath)
+# os.chdir(dirpath)
+os.chdir('./images')
+archivos = os.listdir()
+# print(archivos)
+imagenes = []
+sin_renombrar = []
+for archivo in archivos:
+    if archivo.lower().endswith('.jpg'):
+        imagenes.append(archivo)
+print(imagenes)
+print()
+for imagen in imagenes:
+    camara, fecha = get_camara_fecha(imagen)
+    if camara == '' and fecha == '':
+        sin_renombrar.append(imagen)
+    else:
+        numeracion = get_numeracion(imagen)
+        nuevo_nombre_imagen = fecha + '_' + camara + '_' + numeracion + '.jpg'
+        print(f'{imagen} -> {nuevo_nombre_imagen}')
+
+print('\nNo se ha renombrado:')
+for imagen in sin_renombrar:
+    print(f'\t{imagen}')
