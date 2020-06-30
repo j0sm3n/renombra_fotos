@@ -1,9 +1,11 @@
-import subprocess
+import sys
+import os
 import re
+import subprocess
+import shutil
 from datetime import datetime
 import tkinter as tk
 from tkinter import filedialog
-import os
 
 exif_tool_path = 'exiftool'
 # image_path = './images/2020-05-19__145947.JPG'
@@ -24,6 +26,7 @@ def get_camara_fecha(imagen):
         line = tag.strip().split(':', 1)
         if line[0].strip() == 'Camera Model Name':
             camara = line[-1].strip()
+            camara = camara.replace(' ', '_')
         if line[0].strip() == r'Date/Time Original':
             fecha = line[-1].strip()
             fecha = fecha[:10].replace(':', '-')
@@ -55,35 +58,43 @@ def get_path():
             title="Selecciona el fichero JPG")
     return file_path
 
+def renombra(directorio):
+    os.chdir(directorio)
+    archivos = os.listdir()
+    # print(archivos)
+    imagenes = []
+    for archivo in archivos:
+        if archivo.lower().endswith('.jpg'):
+            imagenes.append(archivo)
 
-# if __name__ == "__main__":
-#     camara, fecha = get_camara_fecha(image_path)
-#     numeracion = get_numeracion(image_path)
-#     nombre_fichero = fecha + '_' + camara + '_' + numeracion + '.jpg'
-#     print(nombre_fichero)
+    sin_renombrar = []
+    for imagen in imagenes:
+        camara, fecha = get_camara_fecha(imagen)
+        if camara == '' and fecha == '':
+            sin_renombrar.append(imagen)
+            imagenes.remove(imagen)
+        else:
+            numeracion = get_numeracion(imagen)
+            nuevo_nombre_imagen = fecha + '_' + camara + '_' + numeracion + '.jpg'
+            print(f'{imagen} -> {nuevo_nombre_imagen}')
 
-# fullpath = get_path()
-# dirpath = os.path.dirname(fullpath)
-# os.chdir(dirpath)
-os.chdir('./images')
-archivos = os.listdir()
-# print(archivos)
-imagenes = []
-sin_renombrar = []
-for archivo in archivos:
-    if archivo.lower().endswith('.jpg'):
-        imagenes.append(archivo)
-print(imagenes)
-print()
-for imagen in imagenes:
-    camara, fecha = get_camara_fecha(imagen)
-    if camara == '' and fecha == '':
-        sin_renombrar.append(imagen)
-    else:
-        numeracion = get_numeracion(imagen)
-        nuevo_nombre_imagen = fecha + '_' + camara + '_' + numeracion + '.jpg'
-        print(f'{imagen} -> {nuevo_nombre_imagen}')
+    if sin_renombrar:
+        print('\nNo se han podido renombrar:')
+        for imagen in sin_renombrar:
+            print(f'\t{imagen}')
 
-print('\nNo se ha renombrado:')
-for imagen in sin_renombrar:
-    print(f'\t{imagen}')
+    renombrar = input("\nRenombrar? (S/N): ")
+    print()
+    if renombrar == 'S' or renombrar == 's':
+        for imagen in imagenes:
+            camara, fecha = get_camara_fecha(imagen)
+            numeracion = get_numeracion(imagen)
+            nuevo_nombre_imagen = fecha + '_' + camara + '_' + numeracion + '.jpg'
+            shutil.move(imagen, nuevo_nombre_imagen)
+            print(f"Renombrado {imagen} a {nuevo_nombre_imagen}")
+
+
+if __name__ == "__main__":
+    directorio = os.path.abspath(sys.argv[1])
+    print(f"Directorio: {directorio}")
+    renombra(directorio)
