@@ -1,14 +1,35 @@
+"""
+Añade el modelo de cámara y la fecha de la imagen a las fotos que se
+encuentren en el directorio pasado como argumento.
+
+Modo de uso:
+python camera_to_name.py path
+"""
+
+
 import sys
 import os
 import re
-import subprocess
+from subprocess import Popen, PIPE, STDOUT
 import shutil
 from datetime import datetime
 import tkinter as tk
 from tkinter import filedialog
 
+# Herramienta instalada en el sistema para la lectura de metadatos.
+# https://exiftool.org
 exif_tool_path = 'exiftool'
-# image_path = './images/2020-05-19__145947.JPG'
+
+def check_exiftool():
+    """
+    Comprueba que esté instalada la utilidad exiftool.
+    """
+    try:
+        Popen([exif_tool_path, '--help'], stdout=PIPE, stderr=PIPE)
+    except OSError:
+        msg = "Es necesario tener instalado exiftool para poder ejecutar este script"
+        sys.exit(msg)
+    return
 
 def get_camara_fecha(imagen):
     """
@@ -16,10 +37,10 @@ def get_camara_fecha(imagen):
     """
     camara, fecha = '', ''
     
-    process = subprocess.Popen(
+    process = Popen(
             [exif_tool_path, imagen],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
+            stdout=PIPE,
+            stderr=STDOUT,
             universal_newlines=True)
 
     for tag in process.stdout:
@@ -38,7 +59,7 @@ def get_numeracion(imagen):
     Devuelve la numeración de la foto
     """
     imagen = imagen.lower()
-    patron = re.compile(r'(\d{4,6})(.JPG|.jpg)')
+    patron = re.compile(r'(\d{4,6})(.jpg)')
     numeracion = patron.search(imagen)
     if numeracion is not None:
         return numeracion.group(1)
@@ -59,42 +80,52 @@ def get_path():
     return file_path
 
 def renombra(directorio):
+    """
+    Muestra las imagenes que se pueden renombrar y el nombre que les asignará,
+    y pregunta si procede con el renombrado, en cuyo caso renombrará todas las
+    imágenes que se puedean renombrar. En el caso de que existan imágenes que 
+    no pueda renombrar, se mostrarán, avisando de que no se pueden renombrar.
+    """
     os.chdir(directorio)
     archivos = os.listdir()
-    # print(archivos)
     imagenes = []
     for archivo in archivos:
         if archivo.lower().endswith('.jpg'):
             imagenes.append(archivo)
 
+    renombrables = {}
     sin_renombrar = []
     for imagen in imagenes:
         camara, fecha = get_camara_fecha(imagen)
-        if camara == '' and fecha == '':
+        if camara == '' or fecha == '':
             sin_renombrar.append(imagen)
-            imagenes.remove(imagen)
         else:
             numeracion = get_numeracion(imagen)
             nuevo_nombre_imagen = fecha + '_' + camara + '_' + numeracion + '.jpg'
-            print(f'{imagen} -> {nuevo_nombre_imagen}')
+            renombrables[imagen] = nuevo_nombre_imagen
 
     if sin_renombrar:
-        print('\nNo se han podido renombrar:')
+        print('\nNo se puede renombrar:')
         for imagen in sin_renombrar:
-            print(f'\t{imagen}')
+            print('\t{}'.format(imagen))
+
+    print("\nFotos a renombrar:")
+    for img in renombrables:
+        print('\t{} ->\t{}'.format(img, renombrables[img]))
 
     renombrar = input("\nRenombrar? (S/N): ")
     print()
     if renombrar == 'S' or renombrar == 's':
-        for imagen in imagenes:
-            camara, fecha = get_camara_fecha(imagen)
-            numeracion = get_numeracion(imagen)
-            nuevo_nombre_imagen = fecha + '_' + camara + '_' + numeracion + '.jpg'
-            shutil.move(imagen, nuevo_nombre_imagen)
-            print(f"Renombrado {imagen} a {nuevo_nombre_imagen}")
+        for img in renombrables:
+            shutil.move(img, renombrables[img])
+            print("Renombrado {} a {}".format(img, nuevo_nombre_imagen))
 
 
 if __name__ == "__main__":
-    directorio = os.path.abspath(sys.argv[1])
-    print(f"Directorio: {directorio}")
-    renombra(directorio)
+    if len(sys.argv) != 2:
+        raise IndexError("Modo de uso: python main.py path")
+    else:
+        check_exiftool()
+        directorio = os.path.abspath(sys.argv[1])
+        print("Directorio: {}".format(directorio))
+        renombra(directorio)
